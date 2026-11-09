@@ -4,24 +4,40 @@ const path = require("path");
 
 const Role = { Cooperative: 1, Processor: 2, Exporter: 3, Auditor: 4 };
 const FAIR_WAGE = 500; // KES per day
+const LOCAL_NETWORKS = ["hardhat", "localhost"];
 
 async function main() {
-  const [owner, coop, processor, exporter, auditor] = await ethers.getSigners();
+  const [deployer] = await ethers.getSigners();
+  console.log(`Deploying to "${network.name}" from ${deployer.address}`);
 
-  // 1. Deploy the contract
   const chain = await ethers.deployContract("FairTradeSupplyChain", [FAIR_WAGE]);
   await chain.waitForDeployment();
   const address = await chain.getAddress();
   console.log(`Contract deployed to: ${address}`);
 
-  // 2. Register participants
+  if (LOCAL_NETWORKS.includes(network.name)) {
+    await seedDemoData(chain);
+  } else {
+    console.log("Public network: no demo data added. Register participants from the dashboard.");
+  }
+
+  const { abi } = artifacts.readArtifactSync("FairTradeSupplyChain");
+  const outDir = path.join(__dirname, "..", "deployments");
+  fs.mkdirSync(outDir, { recursive: true });
+  fs.writeFileSync(path.join(outDir, `${network.name}.json`), JSON.stringify({ address, abi }, null, 2));
+  console.log(`Saved deployments/${network.name}.json`);
+}
+
+async function seedDemoData(chain) {
+  const [, coop, processor, exporter, auditor] = await ethers.getSigners();
+
   await (await chain.registerParticipant(coop.address, Role.Cooperative, "Nyeri Coffee Cooperative")).wait();
   await (await chain.registerParticipant(processor.address, Role.Processor, "Karatina Processors")).wait();
   await (await chain.registerParticipant(exporter.address, Role.Exporter, "Mombasa Exporters")).wait();
   await (await chain.registerParticipant(auditor.address, Role.Auditor, "Kenya Fair Trade Auditors")).wait();
   console.log("Registered 4 participants");
 
-  // 3. Batch 1: a fully fair coffee batch
+  // Batch 1: a fully fair coffee batch
   await (await chain.connect(coop).createBatch("Arabica Coffee AA", "Nyeri, Kenya", 1000)).wait();
   await (await chain.connect(coop).recordWagePayment(1, "W-001", 5, 2500)).wait();
   await (await chain.connect(coop).recordWagePayment(1, "W-002", 5, 2750)).wait();
@@ -34,20 +50,10 @@ async function main() {
   await (await chain.connect(auditor).addAudit(1, "bafybeidemocertificate1", certHash, true, "Wages and safety checked")).wait();
   console.log(`Batch 1 verified: ${await chain.isFairTradeVerified(1)}`);
 
-  // 4. Batch 2: a batch with an underpaid worker (for comparison)
+  // Batch 2: a batch with an underpaid worker
   await (await chain.connect(coop).createBatch("Purple Tea", "Kericho, Kenya", 500)).wait();
   await (await chain.connect(coop).recordWagePayment(2, "W-003", 5, 1500)).wait();
   console.log(`Batch 2 verified: ${await chain.isFairTradeVerified(2)}`);
-
-  // 5. Save address and ABI for the Vue frontend
-  const { abi } = artifacts.readArtifactSync("FairTradeSupplyChain");
-  const outDir = path.join(__dirname, "..", "deployments");
-  fs.mkdirSync(outDir, { recursive: true });
-  fs.writeFileSync(
-    path.join(outDir, `${network.name}.json`),
-    JSON.stringify({ address, abi }, null, 2)
-  );
-  console.log(`Saved deployments/${network.name}.json`);
 }
 
 main().catch((err) => {

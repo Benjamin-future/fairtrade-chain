@@ -39,6 +39,12 @@ describe("FairTradeSupplyChain", function () {
         chain.connect(stranger).registerParticipant(stranger.address, Role.Cooperative, "Fake Co-op")
       ).to.be.revertedWithCustomError(chain, "NotOwner");
     });
+
+    it("keeps a list of registered participants", async function () {
+      const { chain, coop, processor, exporter, auditor } = await loadFixture(deployFixture);
+      const list = await chain.getParticipants();
+      expect([...list]).to.deep.equal([coop.address, processor.address, exporter.address, auditor.address]);
+    });
   });
 
   describe("Batches and stages", function () {

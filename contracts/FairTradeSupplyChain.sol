@@ -15,8 +15,8 @@ contract FairTradeSupplyChain {
 
     struct Batch {
         uint256 id;
-        string productName;   // e.g. "Arabica Coffee AA"
-        string origin;        // e.g. "Nyeri, Kenya"
+        string productName;
+        string origin;
         uint256 quantityKg;
         address createdBy;
         address currentHolder;
@@ -27,7 +27,7 @@ contract FairTradeSupplyChain {
         address handler;
         Role role;
         string location;
-        string description;   // e.g. "Harvested", "Washed and dried"
+        string description;
         uint256 timestamp;
     }
 
@@ -42,8 +42,8 @@ contract FairTradeSupplyChain {
 
     struct Audit {
         address auditor;
-        string ipfsCid;       // where the certificate is stored on IPFS
-        bytes32 documentHash; // hash of the certificate file
+        string ipfsCid;
+        bytes32 documentHash;
         bool passed;
         string notes;
         uint256 timestamp;
@@ -54,6 +54,7 @@ contract FairTradeSupplyChain {
     uint256 public batchCount;
 
     mapping(address => Participant) public participants;
+    address[] private participantList;
     mapping(uint256 => Batch) private batches;
     mapping(uint256 => Stage[]) private stages;
     mapping(uint256 => WagePayment[]) private wages;
@@ -105,6 +106,7 @@ contract FairTradeSupplyChain {
 
     function registerParticipant(address account, Role role, string calldata name) external onlyOwner {
         if (account == address(0) || role == Role.None || bytes(name).length == 0) revert InvalidInput();
+        if (participants[account].role == Role.None) participantList.push(account); // first time only
         participants[account] = Participant(name, role, true);
         emit ParticipantRegistered(account, role, name);
     }
@@ -167,7 +169,11 @@ contract FairTradeSupplyChain {
         emit AuditAdded(batchId, msg.sender, passed, ipfsCid);
     }
 
-    // ---------- Read (used by the QR page) ----------
+    // ---------- Read ----------
+
+    function getParticipants() external view returns (address[] memory) {
+        return participantList;
+    }
 
     function getBatch(uint256 batchId) external view batchExists(batchId) returns (Batch memory) {
         return batches[batchId];
@@ -192,8 +198,6 @@ contract FairTradeSupplyChain {
         return audits[batchId][auditIndex].documentHash == documentHash;
     }
 
-    /// Fair Trade verified = at least one wage record, all wages fair,
-    /// at least one audit, and all audits passed.
     function isFairTradeVerified(uint256 batchId) external view batchExists(batchId) returns (bool) {
         WagePayment[] storage w = wages[batchId];
         Audit[] storage a = audits[batchId];
