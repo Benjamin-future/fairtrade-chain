@@ -1,0 +1,57 @@
+:root {
+  --forest: #06110C;
+  --charcoal: #171717;
+  --crimson: #A31C1B;
+  --crimson-text: #E46B6A;
+  --cream: #EDE6DA;
+  --mint: #8FBFA6;
+  --muted: #9AA39D;
+  --line: rgba(237, 230, 218, 0.1);
+  --serif: 'Playfair Display', Georgia, serif;
+  --sans: 'Inter', system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  min-height: 100vh;
+  background: var(--forest);
+  color: var(--cream);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+#app { max-width: 1080px; margin: 0 auto; padding: 0 20px; }
+a { color: inherit; text-decoration: none; }
+button, input { font: inherit; }
+::selection { background: var(--crimson); color: var(--cream); }
+:focus-visible { outline: 2px solid var(--mint); outline-offset: 3px; }
+
+/* Header and footer */
+.nav { display: flex; justify-content: space-between; align-items: center; padding: 20px 0; border-bottom: 1px solid var(--line); }
+.brand { font-family: var(--serif); font-size: 1.25rem; }
+.brand span { color: var(--crimson); }
+.nav nav { display: flex; gap: 24px; font-size: .7rem; letter-spacing: .15em; text-transform: uppercase; color: var(--muted); }
+.nav nav a:hover { color: var(--cream); }
+.footer { padding: 20px 0 32px; border-top: 1px solid var(--line); font-size: .7rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+
+/* Shared type */
+main { padding: 40px 0; }
+section { margin-bottom: 48px; }
+.eyebrow { margin-bottom: 10px; font-size: .7rem; letter-spacing: .2em; text-transform: uppercase; color: var(--muted); }
+h1 { font-family: var(--serif); font-size: clamp(2rem, 5vw, 3.4rem); line-height: 1.05; text-transform: uppercase; }
+.accent { color: var(--crimson); }
+.section-title { margin-bottom: 16px; font-family: var(--serif); font-size: 1.6rem; line-height: 1.2; }
+.small { font-size: .8rem; }
+.muted { color: var(--muted); }
+.error { color: var(--crimson-text); }
+
+/* Badges */
+.badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: .7rem; font-weight: 600; white-space: nowrap; }
+.badge.ok { background: rgba(143, 191, 166, .15); color: var(--mint); border: 1px solid rgba(143, 191, 166, .4); }
+.badge.bad { background: rgba(163, 28, 27, .15); color: var(--crimson-text); border: 1px solid rgba(163, 28, 27, .5); }
+
+/* Back link */
+.back { display: inline-block; margin-bottom: 24px; font-size: .85rem; color: var(--muted); transition: color .2s; }
+.back:hover { color: var(--cream); }
