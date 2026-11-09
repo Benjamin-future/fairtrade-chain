@@ -1,12 +1,33 @@
 import { ethers } from 'ethers'
-import deployment from '../../deployments/localhost.json'
 
-const RPC_URL = 'http://127.0.0.1:8545'
-const CHAIN_ID_HEX = '0x7a69' // 31337, the Hardhat local network
+// Which blockchain to use: "localhost" while developing, "sepolia" on the live site.
+// Set in frontend/.env.development and frontend/.env.production.
+const NETWORK = import.meta.env.VITE_NETWORK || 'localhost'
+
+const NETWORKS = {
+  localhost: {
+    chainIdHex: '0x7a69', // 31337
+    chainName: 'Hardhat Local',
+    rpcUrl: 'http://127.0.0.1:8545',
+  },
+  sepolia: {
+    chainIdHex: '0xaa36a7', // 11155111
+    chainName: 'Sepolia',
+    rpcUrl: import.meta.env.VITE_RPC_URL || 'https://ethereum-sepolia-rpc.publicnode.com',
+  },
+}
+
+const config = NETWORKS[NETWORK]
+const deployments = import.meta.glob('../../deployments/*.json', { eager: true, import: 'default' })
+const deployment = deployments[`../../deployments/${NETWORK}.json`]
+
+if (!config || !deployment) {
+  throw new Error(`No deployment found for "${NETWORK}". Deploy the contract to that network first.`)
+}
 
 // ---------- Reading (every page uses this) ----------
 
-const provider = new ethers.JsonRpcProvider(RPC_URL)
+const provider = new ethers.JsonRpcProvider(config.rpcUrl)
 export const contract = new ethers.Contract(deployment.address, deployment.abi, provider)
 
 export const ROLE_NAMES = ['None', 'Cooperative', 'Processor', 'Exporter', 'Auditor']
@@ -33,17 +54,17 @@ export const hasMetaMask = () => typeof window !== 'undefined' && !!window.ether
 
 export async function ensureNetwork() {
   const current = await window.ethereum.request({ method: 'eth_chainId' })
-  if (current === CHAIN_ID_HEX) return
+  if (current === config.chainIdHex) return
   try {
-    await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: CHAIN_ID_HEX }] })
+    await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: config.chainIdHex }] })
   } catch (err) {
     if (err.code !== 4902) throw err
     await window.ethereum.request({
       method: 'wallet_addEthereumChain',
       params: [{
-        chainId: CHAIN_ID_HEX,
-        chainName: 'Hardhat Local',
-        rpcUrls: [RPC_URL],
+        chainId: config.chainIdHex,
+        chainName: config.chainName,
+        rpcUrls: [config.rpcUrl],
         nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
       }],
     })
@@ -101,6 +122,9 @@ export function friendlyError(err) {
   }
   if (name && ERROR_MESSAGES[name]) return ERROR_MESSAGES[name]
 
+  if (/insufficient funds/i.test(err?.message ?? '')) {
+    return 'This account does not have enough ETH to pay the network fee.'
+  }
   if (/nonce/i.test(err?.message ?? '')) {
     return 'MetaMask is out of sync with the local blockchain. In MetaMask go to Settings → Advanced → Clear activity tab data, then try again.'
   }

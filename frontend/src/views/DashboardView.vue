@@ -72,16 +72,15 @@ const wagePreview = computed(() => {
 
 // ---------- Loading ----------
 async function loadChainData() {
-  const [fw, count, events] = await Promise.all([
+  const [fw, count, addresses] = await Promise.all([
     contract.fairDailyWageKES(),
     contract.batchCount(),
-    contract.queryFilter('ParticipantRegistered', 0, 'latest'),
+    contract.getParticipants(),
   ])
   fairWage.value = Number(fw)
 
-  const addresses = [...new Set(events.map((e) => e.args.account))]
   participants.value = await Promise.all(
-    addresses.map(async (address) => {
+    [...addresses].map(async (address) => {
       const p = await contract.participants(address)
       return { address, name: p.name, role: Number(p.role), active: p.active }
     })
@@ -116,7 +115,7 @@ async function refresh() {
     dataError.value = ''
   } catch (e) {
     console.error(e)
-    dataError.value = 'Could not reach the blockchain. Is "npx hardhat node" running and the contract deployed?'
+    dataError.value = 'Could not reach the blockchain right now. Check your connection and try again.'
   }
 }
 
@@ -383,7 +382,7 @@ function addAudit() {
 
         <div class="panel wide">
           <h3 class="panel-title">Participants</h3>
-          <p class="panel-desc">Read from the contract's registration records.</p>
+          <p class="panel-desc">Read from the contract's participant list.</p>
           <p v-if="!participants.length" class="empty">No participants registered yet.</p>
           <div v-else class="table-wrap">
             <table>
