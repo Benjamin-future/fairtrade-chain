@@ -4,6 +4,7 @@ import { ethers } from 'ethers'
 import {
   contract, ROLE_NAMES, shortAddress, hasMetaMask,
   connectWallet, getConnectedAddress, getWriter, ensureNetwork, onWalletChange, friendlyError,
+  switchAccount,
 } from '../contract'
 
 const ROLE = { None: 0, Cooperative: 1, Processor: 2, Exporter: 3, Auditor: 4 }
@@ -21,6 +22,7 @@ const metaMaskInstalled = hasMetaMask()
 const account = ref(null)
 const me = ref(null)
 const connecting = ref(false)
+const switching = ref(false)
 const connectError = ref('')
 const dataError = ref('')
 
@@ -96,16 +98,18 @@ async function loadChainData() {
 }
 
 async function loadMe() {
-  if (!account.value) {
+  const addr = account.value
+  if (!addr) {
     me.value = null
     return
   }
-  const [owner, p] = await Promise.all([contract.owner(), contract.participants(account.value)])
+  const [owner, p] = await Promise.all([contract.owner(), contract.participants(addr)])
+  if (account.value !== addr) return // the account changed while this was loading
   me.value = {
     name: p.name,
     role: Number(p.role),
     active: p.active,
-    isAdmin: owner.toLowerCase() === account.value.toLowerCase(),
+    isAdmin: owner.toLowerCase() === addr.toLowerCase(),
   }
 }
 
@@ -119,11 +123,21 @@ async function refresh() {
   }
 }
 
+// Clears everything tied to the previous account before showing a new one
+function setAccount(addr) {
+  if (addr === account.value) return false
+  account.value = addr
+  me.value = null
+  selectedBatchId.value = null
+  handOverTo.value = ''
+  return true
+}
+
 async function connect() {
   connecting.value = true
   connectError.value = ''
   try {
-    account.value = await connectWallet()
+    setAccount(await connectWallet())
     await refresh()
   } catch (e) {
     connectError.value = friendlyError(e)
@@ -133,15 +147,29 @@ async function connect() {
 }
 
 async function handleWalletChange() {
-  selectedBatchId.value = null
-  account.value = await getConnectedAddress()
+  try {
+    setAccount(await getConnectedAddress())
+  } catch (e) {
+    console.error(e)
+  }
   await refresh()
+}
+
+async function changeAccount() {
+  switching.value = true
+  try {
+    if (setAccount(await switchAccount())) await refresh()
+  } catch (e) {
+    if (e?.code !== 4001) showStatus('error', friendlyError(e)) // 4001 = picker closed
+  } finally {
+    switching.value = false
+  }
 }
 
 onMounted(async () => {
   stopListening = onWalletChange(handleWalletChange)
   try {
-    account.value = await getConnectedAddress()
+    setAccount(await getConnectedAddress())
   } catch (e) {
     console.error(e)
   }
@@ -295,13 +323,16 @@ function addAudit() {
 
       <template v-else>
         <span class="label">Connected as</span>
-        <strong>{{ me?.name || (isAdmin ? 'Admin' : 'Unregistered wallet') }}</strong>
+        <strong>{{ me ? me.name || (isAdmin ? 'Admin' : 'Unregistered wallet') : 'Loading…' }}</strong>
         <span class="addr">{{ shortAddress(account) }}</span>
         <div class="roles">
           <span v-if="isAdmin" class="chip admin">Admin</span>
           <span v-if="me?.active" class="chip">{{ ROLE_NAMES[me.role] }}</span>
         </div>
-        <p class="tip">To act as someone else, switch account in MetaMask.</p>
+        <button type="button" class="btn-ghost switch" :disabled="switching || busy" @click="changeAccount">
+          {{ switching ? 'Opening MetaMask…' : 'Switch account' }}
+        </button>
+        <p class="tip">In the MetaMask window, tick only the account you want to act as.</p>
       </template>
     </div>
   </section>
@@ -589,6 +620,9 @@ function addAudit() {
     </section>
   </template>
 
+  <!-- Connected, role still loading -->
+  <p v-else-if="!dataError" class="muted loading">Loading your role…</p>
+
   <!-- Transaction status -->
   <Transition name="toast">
     <div v-if="status.state" :class="['toast', status.state]" role="status">
@@ -635,8 +669,10 @@ function addAudit() {
   color: var(--mint);
 }
 .chip.admin { border-color: rgba(163, 28, 27, .6); color: var(--crimson-text); }
+.switch { align-self: flex-start; margin-top: 8px; }
 .tip { margin-top: 8px; padding-top: 10px; border-top: 1px solid var(--line); font-size: .75rem; color: var(--muted); }
 .banner { margin-bottom: 24px; padding: 12px 16px; border: 1px solid rgba(163, 28, 27, .5); border-radius: 12px; }
+.loading { padding: 24px 0; }
 
 /* ---------- Buttons ---------- */
 .btn-primary {

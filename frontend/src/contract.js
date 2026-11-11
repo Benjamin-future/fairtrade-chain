@@ -84,6 +84,16 @@ export async function getConnectedAddress() {
   return accounts.length ? ethers.getAddress(accounts[0]) : null
 }
 
+// Opens MetaMask's account picker so the user can choose which account this site uses
+export async function switchAccount() {
+  await window.ethereum.request({
+    method: 'wallet_requestPermissions',
+    params: [{ eth_accounts: {} }],
+  })
+  await ensureNetwork()
+  return getConnectedAddress()
+}
+
 // A fresh contract connected to the user's wallet, created for each transaction.
 // Never store it in Vue state: Vue's reactivity breaks ethers objects.
 export async function getWriter() {
@@ -112,6 +122,7 @@ const ERROR_MESSAGES = {
 
 export function friendlyError(err) {
   if (err?.code === 'ACTION_REJECTED' || err?.code === 4001) return 'You cancelled the request in MetaMask.'
+  if (err?.code === -32002) return 'MetaMask already has a window open. Click the fox icon in your browser to finish it.'
 
   let name = err?.revert?.name
   if (!name) {
